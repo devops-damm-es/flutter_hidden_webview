@@ -26,7 +26,7 @@ enum class CallMethod {
     setOptions, evalJavascript, loadHTML, loadUrl
 }
 
-class InteractiveWebviewPlugin(activity: Activity): MethodCallHandler {
+class InteractiveWebviewPlugin(registrar: Registrar): MethodCallHandler {
 
     companion object {
         lateinit var channel: MethodChannel
@@ -34,20 +34,20 @@ class InteractiveWebviewPlugin(activity: Activity): MethodCallHandler {
         @JvmStatic
         fun registerWith(registrar: Registrar) {
             channel = MethodChannel(registrar.messenger(), "interactive_webview")
-            channel.setMethodCallHandler(InteractiveWebviewPlugin(registrar.activity()))
+            channel.setMethodCallHandler(InteractiveWebviewPlugin(registrar))
         }
     }
 
-    private val webView = WebView(activity)
+    private val webView = WebView(registrar.context())
     private val webClient = InteractiveWebViewClient(listOf())
 
     init {
         val params = FrameLayout.LayoutParams(0, 0)
-        val decorView = activity.window.decorView as FrameLayout
+        val decorView = registrar.activity()!!.window.decorView as FrameLayout
         decorView.addView(webView, params)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            if (0 != (activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE)) {
+            if (0 != (registrar.activity()!!.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE)) {
                 WebView.setWebContentsDebuggingEnabled(true)
             }
         }

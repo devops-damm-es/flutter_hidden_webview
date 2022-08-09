@@ -13,9 +13,9 @@ class InteractiveWebView {
   Stream<WebViewStateChanged> get stateChanged => _stateChanged.stream;
   Stream<WebkitMessage> get didReceiveMessage => _didReceiveMessage.stream;
 
-  static InteractiveWebView _instance;
+  static InteractiveWebView _instance = InteractiveWebView._();
 
-  factory InteractiveWebView() => _instance ??= new InteractiveWebView._();
+  factory InteractiveWebView() => _instance;
 
   InteractiveWebView._() {
     _channel.setMethodCallHandler(_handleMessages);
@@ -24,17 +24,20 @@ class InteractiveWebView {
   Future<Null> _handleMessages(MethodCall call) async {
     switch (call.method) {
       case 'stateChanged':
-        _stateChanged.add(WebViewStateChanged.fromMap(Map<String, dynamic>.from(call.arguments)));
+        _stateChanged.add(WebViewStateChanged.fromMap(
+            Map<String, dynamic>.from(call.arguments)));
         break;
 
       case 'didReceiveMessage':
-        _didReceiveMessage.add(WebkitMessage.fromMap(Map<String, dynamic>.from(call.arguments)));
+        _didReceiveMessage.add(
+            WebkitMessage.fromMap(Map<String, dynamic>.from(call.arguments)));
         break;
     }
   }
 
-  Future<Null> setOptions({List<String> restrictedSchemes, String webkitHandler}) async {
-    final args = <String, dynamic> {
+  Future<Null> setOptions(
+      {List<String>? restrictedSchemes, String? webkitHandler}) async {
+    final args = <String, dynamic>{
       'restrictedSchemes': restrictedSchemes ?? <String>[],
     };
 
@@ -42,26 +45,25 @@ class InteractiveWebView {
   }
 
   Future<Null> evalJavascript(String script) async {
-    final args = <String, dynamic> {
+    final args = <String, dynamic>{
       'script': script,
     };
 
     await _channel.invokeMethod('evalJavascript', args);
   }
 
-  Future<Null> loadHTML(String html, {String baseUrl}) async {
-    final args = <String, dynamic> {
+  Future<Null> loadHTML(String html, {String? baseUrl}) async {
+    final args = <String, dynamic>{
       'html': html,
     };
 
-    if (baseUrl != null)
-      args['baseUrl'] = baseUrl;
+    if (baseUrl != null) args['baseUrl'] = baseUrl;
 
     await _channel.invokeMethod('loadHTML', args);
   }
 
   Future<Null> loadUrl(String url) async {
-    final args = <String, dynamic> {
+    final args = <String, dynamic>{
       'url': url,
     };
 
@@ -70,14 +72,13 @@ class InteractiveWebView {
 }
 
 class WebViewStateChanged {
-
   final WebViewState type;
   final String url;
 
   WebViewStateChanged(this.type, this.url);
 
   factory WebViewStateChanged.fromMap(Map<String, dynamic> map) {
-    WebViewState t;
+    late WebViewState t;
     switch (map['type']) {
       case 'didStart':
         t = WebViewState.didStart;
@@ -92,7 +93,6 @@ class WebViewStateChanged {
 }
 
 class WebkitMessage {
-
   final String name;
   final dynamic data;
 
@@ -102,8 +102,3 @@ class WebkitMessage {
     return WebkitMessage(map["name"], map["data"]);
   }
 }
-
-
-
-
-
