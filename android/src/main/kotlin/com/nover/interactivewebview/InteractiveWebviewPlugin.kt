@@ -1,5 +1,7 @@
 package com.nover.interactivewebview
 
+import androidx.annotation.NonNull
+
 import android.annotation.TargetApi
 import android.app.Activity
 import android.content.pm.ApplicationInfo
@@ -13,11 +15,13 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import io.flutter.plugin.common.PluginRegistry.Registrar
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -26,41 +30,62 @@ enum class CallMethod {
     setOptions, evalJavascript, loadHTML, loadUrl
 }
 
-class InteractiveWebviewPlugin(registrar: Registrar): MethodCallHandler {
-
+class InteractiveWebviewPlugin: FlutterPlugin, ActivityAware, MethodCallHandler {
+    /// The MethodChannel that will the communication between Flutter and native Android
+    ///
+    /// This local reference serves to register the plugin with the Flutter Engine and unregister it
+    /// when the Flutter Engine is detached from the Activity
     companion object {
         lateinit var channel: MethodChannel
+    }
+    
+    private var webView : WebView? = null
+    private var webClient : InteractiveWebViewClient? = null
 
-        @JvmStatic
-        fun registerWith(registrar: Registrar) {
-            channel = MethodChannel(registrar.messenger(), "interactive_webview")
-            channel.setMethodCallHandler(InteractiveWebviewPlugin(registrar))
-        }
+    override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+      channel = MethodChannel(flutterPluginBinding.binaryMessenger, "interactive_webview")
+      channel.setMethodCallHandler(this)
+      webView = WebView(flutterPluginBinding.applicationContext)
+      webClient = InteractiveWebViewClient(listOf())
     }
 
-    private val webView = WebView(registrar.context())
-    private val webClient = InteractiveWebViewClient(listOf())
-
-    init {
-        val params = FrameLayout.LayoutParams(0, 0)
-        val decorView = registrar.activity()!!.window.decorView as FrameLayout
-        decorView.addView(webView, params)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            if (0 != (registrar.activity()!!.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE)) {
-                WebView.setWebContentsDebuggingEnabled(true)
-            }
-        }
-
-        webView.visibility = View.GONE
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccessFromFileURLs = true
-        webView.addJavascriptInterface(JsInterface(), "native")
-        webView.webViewClient = webClient
+    override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+      channel.setMethodCallHandler(null)
+      webView = null
+      webClient = null
     }
 
-    override fun onMethodCall(call: MethodCall, result: Result): Unit {
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+      val params = FrameLayout.LayoutParams(0, 0)
+      val decorView = binding.activity.window.decorView as FrameLayout
+      decorView.addView(webView!!, params)
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+          if (0 != (binding.activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE)) {
+              WebView.setWebContentsDebuggingEnabled(true)
+          }
+      }
+
+      webView!!.visibility = View.GONE
+      webView!!.settings.javaScriptEnabled = true
+      webView!!.settings.domStorageEnabled = true
+      webView!!.settings.allowFileAccessFromFileURLs = true
+      webView!!.addJavascriptInterface(JsInterface(), "native")
+      webView!!.webViewClient = webClient!!    
+    }
+
+    override fun onDetachedFromActivity() {
+    }
+
+    override fun onDetachedFromActivityForConfigChanges() {
+        this.onDetachedFromActivity()
+    }
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        this.onAttachedToActivity(binding)
+    }
+
+    override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
         val method = CallMethod.valueOf(call.method)
         when (method) {
             CallMethod.setOptions -> setOptions(call)
@@ -76,7 +101,7 @@ class InteractiveWebviewPlugin(registrar: Registrar): MethodCallHandler {
         (call.arguments as? HashMap<*, *>)?.let {
             val restrictedSchemes = it["restrictedSchemes"]
             if (restrictedSchemes is Array<*>)
-                webClient.restrictedSchemes = restrictedSchemes.filterIsInstance<String>()
+                webClient!!.restrictedSchemes = restrictedSchemes.filterIsInstance<String>()
         }
     }
 
@@ -84,7 +109,7 @@ class InteractiveWebviewPlugin(registrar: Registrar): MethodCallHandler {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             (call.arguments as? HashMap<*, *>)?.let { arguments ->
                 (arguments["script"] as? String)?.let {
-                    webView.evaluateJavascript(it, null)
+                    webView!!.evaluateJavascript(it, null)
                 }
             }
         }
@@ -95,10 +120,10 @@ class InteractiveWebviewPlugin(registrar: Registrar): MethodCallHandler {
             val html = arguments["html"] as String
             if (arguments.containsKey("baseUrl")) {
                 (arguments["baseUrl"] as? String)?.let {
-                    webView.loadDataWithBaseURL(it, html, "text/html", "UTF-8", null)
+                    webView!!.loadDataWithBaseURL(it, html, "text/html", "UTF-8", null)
                 }
             } else {
-                webView.loadData(html, "text/html", "UTF-8")
+                webView!!.loadData(html, "text/html", "UTF-8")
             }
         }
     }
@@ -106,7 +131,7 @@ class InteractiveWebviewPlugin(registrar: Registrar): MethodCallHandler {
     private fun loadUrl(call: MethodCall) {
         (call.arguments as? HashMap<*, *>)?.let { arguments ->
             val url = arguments["url"] as String
-            webView.loadUrl(url)
+            webView!!.loadUrl(url)
         }
     }
 }
