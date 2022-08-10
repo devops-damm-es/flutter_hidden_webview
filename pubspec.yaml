@@ -17,3 +17,5 @@ flutter:
       android:
         package: com.nover.interactivewebview
         pluginClass: InteractiveWebviewPlugin
+      ios:
+        pluginClass: InteractiveWebviewPlugin
